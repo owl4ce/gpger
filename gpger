@@ -1,0 +1,227 @@
+#!/usr/bin/env sh
+
+# Desc:   POSIX sh script to automate sign and verify files via GnuPG recursively.
+# Author: Harry Kurn <alternate-se7en@pm.me>
+# URL:    https://github.com/owl4ce/gpger
+
+# SPDX-License-Identifier: ISC
+
+# shellcheck disable=SC2164,SC2295,SC2015,SC2194
+
+# Speeds up script-execution by using C or POSIX locale instead of UTF-?? locales.
+export LANG='POSIX'
+
+# ANSI color escape sequences.
+R='\033[1;31m' W='\033[1;37m' NC='\033[0m' \
+r='\033[0;31m' g='\033[4;32m' m='\033[0;35m' b='\033[0;34m'
+
+die() { printf "${R}%s${NC} %b\n" 'error:' "${@}" >&2; exit 1; }
+msg() { printf "\n%s${m}%s${NC}%s %b\n"    '-' 'x' '-' "${@}"; }
+
+# Ensure GnuPG is installed, best simple safety.
+[ -x "$(command -v gpg)" ] || die 'GnuPG not found. Install it first!'
+
+help()
+{
+    printf '\n%b\n\n%b\n%b\n\n%b\n%b\n%b\n%b\n\n%b\n%b\n%b\n\n%b\n\n' \
+           "${R}*${NC} Simplify life with ${m}G${NC}nu${m}PG${NC} Recursive Sign${m}er${NC}" \
+           "${W}USAGE${NC}" \
+           "  ${0##*/} ${b}[${m}options${b}]${NC}" \
+           "${W}OPTIONS${NC}" \
+           "  ${m}-s ${g}/path/to/your_files${NC}	${r}[${NC}  sign  ${r}]${NC}" \
+           "  ${m}-v ${g}/path/to/your_files${NC}	${r}[${NC} verify ${r}]${NC}" \
+           "  ${m}-h				${r}[${NC}  help  ${r}]${NC}" \
+           "${W}ENVIRONMENT${NC}" \
+           "  ${g}GPGER_SHA_BITS${NC}		Set the SHA bits to be used." \
+           '				1/224/256/384/512. Default 256.' \
+           'https://github.com/owl4ce/gpger'
+
+    exit ${?}
+}
+
+SorV()
+{
+    # Preserve old working directory to satisfy `pushd`/`popd`-like for POSIX sh.
+    OWD="${PWD:-$(pwd -P)}"
+
+    # Starts sorting files and signing archives matched by globs.
+    while [ -n "${1}" ]; do
+
+        # Shift the positional parameter +1 if current iteration is a directory.
+        [ -d "${1}" ] && { shift; continue; }
+
+        # Ensure the current iteration of positional parameter is file, or shift
+        # and avoid executing the next lines, this omitting non-inode arguments.
+        [ -f "${1}" ] || { shift; continue; }
+
+        # When the first positional parameter is a path prefixed with directory,
+        # preserve the directory, so that directory will be omitted if the path
+        # of the first positional parameter is prefixed directory so that files'
+        # digest are stored in that directory properly instead of ${PWD}. Demo:
+        #
+        # $ gpger -s dir/**/*
+        # $ cat dir/sha256sums.asc
+        # -----BEGIN PGP SIGNED MESSAGE-----
+        # Hash: SHA256
+        #
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  file.extension
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  subdir/archive.tar.alt
+        # 
+        # -----BEGIN PGP SIGNATURE-----
+        # Version: GnuPG vX.X.XX (GNU/Linux)
+        #
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+        # xxxxx
+        # -----END PGP SIGNATURE-----
+        #
+        if [ -z "${FMFPD+null}" ]; then
+            # 'dir/file.extension' -> 'dir'
+            FMFPD="${1%/*}"
+            # Ensure 'dir' exists or reset to null.
+            [ -d "$FMFPD" ] || FMFPD=
+        fi
+
+        # Enter the file directory each positional parameters prefixed with directory.
+        [ -d "${1%/*}" ] && cd -- "${1%/*}"
+
+        # Omit all directories from the path, leaving the filenames (alt: `basename`).
+        FILENAME="${1##*/}"
+
+        # Sort files and sign the archive matched by pattern/globs.
+        case "$FILENAME" in
+               *.sign|*.asc) # Avoids recursion in signature files.
+                             shift
+            ;;
+            *.[tr]ar*|*.zip) # Preserve verified files to sign the files' digest.
+                             [ -f "$FILENAME" ] && FILES="${FILES} '${1#"$FMFPD"/}'"
+
+                             # Get the archives' type.
+                             FILE_EXT="${FILENAME##*.}"
+
+                             # Ensure '.tar' archives never uses comp file extension.
+                             [ -z "${FILENAME##*.tar.${FILE_EXT}}" ] && FILE_EXT='tar'
+
+                             # Add '.sign' file extension for the signature files,
+                             # omitting the '.tar' compression algorithm suffix.
+                             FILE_SIG="${FILENAME%.*[!${FILE_EXT}]}.sign"
+
+                             case 1 in
+                                 "$S") msg "Signing '${FILENAME}' with detached signature file ..."
+
+                                       # The `git archive`-like GnuPG signature.
+                                       gpg --personal-digest-preferences "SHA${GPGER_SHA_BITS}" \
+                                           -ba \
+                                           --comment "This signature is for the .${FILE_EXT} version of the archive" \
+                                           --yes -v \
+                                           -o "$FILE_SIG" "$FILENAME" \
+                                       || die "Failed to sign archive with detached signature file."
+                                 ;;
+                                 "$V") msg "Verifying '${FILENAME}' with detached signature file ..."
+
+                                       # Verify detached signature file.
+                                       gpg --personal-digest-preferences "SHA${GPGER_SHA_BITS}" \
+                                           --verify -v "$FILE_SIG" "$FILENAME" \
+                                       || die "Failed to verify archive with detached signature file."
+                                 ;;
+                             esac
+
+                             [ -n "$FILES" ] && shift
+            ;;
+                          *) # Preserve verified files to sign the files' digest.
+                             [ -f "$FILENAME" ] && FILES="${FILES} '${1#"$FMFPD"/}'"
+
+                             [ -n "$FILES" ] && shift
+            ;;
+        esac
+
+        # `popd`
+        cd -- "$OWD"
+
+    done
+
+    # Enter the correct directory before signing the files' digest.
+    [ -n "${FILES#\ }" ] && cd -- "$FMFPD" || die "There's no file to compute the digest."
+
+    case 1 in
+        "$S") msg "Compute and signing files' digest with SHA${GPGER_SHA_BITS} ..."
+
+              # Compute and sign the files' digest.
+              if ! gpg --personal-digest-preferences "SHA${GPGER_SHA_BITS}" \
+                       --clear-sign \
+                       --emit-version --emit-version --emit-version --emit-version \
+                       --yes -v \
+                       -o "sha${GPGER_SHA_BITS}sums.asc" /dev/stdin <<- SHA_SUMS
+						$(eval "sha${GPGER_SHA_BITS}sum -- ${FILES#\ } || kill ${$}")
+					SHA_SUMS
+              then
+                   die "Failed to compute or sign files' digest."
+              fi
+        ;;
+        "$V") msg "Verifying signed files' digest with SHA${GPGER_SHA_BITS} ..."
+
+              # Verify signed files' digest.
+              gpg --personal-digest-preferences "SHA${GPGER_SHA_BITS}" \
+                  --verify -v "sha${GPGER_SHA_BITS}sums.asc" \
+              || die "Failed to verify signed files' digest."
+
+              msg "Checking SHA${GPGER_SHA_BITS} files' digest ..."
+
+              # Decrypt signed files' digest and check files' digest.
+              gpg --personal-digest-preferences "SHA${GPGER_SHA_BITS}" \
+                  --decrypt "sha${GPGER_SHA_BITS}sums.asc" 2>/dev/null \
+              | "sha${GPGER_SHA_BITS}sum" -c -- - \
+              || die "Failed to decrypt or check signed files' digest."
+        ;;
+    esac
+
+    # `popd`
+    cd -- "$OWD"
+
+    # OK!
+    printf '\n%b\n\n' "Everything is ${g}OK${NC}."
+}
+
+# Set the SHA bits to use, fallback to SHA256.
+case "$GPGER_SHA_BITS" in
+    1|224|256|384|512) ;;
+    *) GPGER_SHA_BITS='256'
+    ;;
+esac
+
+# Get and parse all user-inputted options.
+while getopts ':s:v:h' OPTS; do
+    case "$OPTS" in
+        s) FARG="$OPTARG" S=1
+        ;;
+        v) FARG="$OPTARG" V=1
+        ;;
+        h) help
+        ;;
+       \?) die "Invalid option! (${m}-${OPTARG}${NC})"
+        ;;
+        :) die "Detected (${m}-${OPTARG}${NC}) without arguments."
+        ;;
+    esac
+done
+
+# Omit the options.
+shift "$((OPTIND-1))"
+
+# Show help message if there's no option.
+[ "$OPTIND" -ne 1 ] || help
+
+# Start signing or verifying.
+SorV "$FARG" "${@}"
+
+exit ${?}
