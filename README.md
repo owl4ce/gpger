@@ -19,8 +19,8 @@
 ## <samp>INSTALLATION</samp>
 
 ```sh
-💲 curl -sL https://raw.githubusercontent.com/owl4ce/gpger/main/gpger \
-| install -m755 /dev/stdin ~/.local/bin/gpger # $PATH
+💲 curl -s https://raw.githubusercontent.com/owl4ce/gpger/main/gpger \
+| install -m755 - ~/.local/bin/gpger # $PATH
 ```
 
 ## <samp>USAGE</samp>
@@ -59,9 +59,9 @@ Recursive example:
 ```
 
 ```sh
--x- Signing 'dokumen_negara.tar.xz' with detached signature file ...
+-x- Signing 'archiveexample.tar.xz' with detached signature file ...
 gpg: using pgp trust model
-gpg: writing to 'dokumen_negara.tar.sign'
+gpg: writing to 'archiveexample.tar.sign'
 gpg: RSA/SHA512 signature from: "xxxxxxxxxxxxxxxx xxxxx xxxx (xxxxxx) <xxxxxxxxxxxxxxx@xx.xx>"
 
 -x- Signing 'xyz.zip' with detached signature file ...
@@ -82,9 +82,9 @@ Everything is OK.
 ```
 
 ```sh
--x- Verifying 'dokumen_negara.tar.xz' with detached signature file ...
+-x- Verifying 'archiveexample.tar.xz' with detached signature file ...
 gpg: armor header: Comment: This signature is for the .tar version of the archive
-gpg: Signature made Thu Mar 31 23:25:07 2022 JST
+gpg: Signature made Thu Mar 31 23:25:07 2022 WIB
 gpg:                using RSA key xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 gpg: using pgp trust model
 gpg: Good signature from "xxxxx xxxx (xxxxxx) <xxxxxxxxxxxxxxx@xx.xx>" [ultimate]
@@ -92,7 +92,7 @@ gpg: binary signature, digest algorithm SHA512, key algorithm rsa4096
 
 -x- Verifying 'xyz.zip' with detached signature file ...
 gpg: armor header: Comment: This signature is for the .zip version of the archive
-gpg: Signature made Thu Mar 31 23:25:07 2022 JST
+gpg: Signature made Thu Mar 31 23:25:07 2022 WIB
 gpg:                using RSA key xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 gpg: using pgp trust model
 gpg: Good signature from "xxxxx xxxx (xxxxxx) <xxxxxxxxxxxxxxx@xx.xx>" [ultimate]
@@ -102,15 +102,15 @@ gpg: binary signature, digest algorithm SHA512, key algorithm rsa4096
 gpg: armor header: Hash: SHA512
 gpg: armor header: Version: GnuPG v2.2.34 (GNU/Linux)
 gpg: original file name=''
-gpg: Signature made Thu Mar 31 23:25:07 2022 JST
+gpg: Signature made Thu Mar 31 23:25:07 2022 WIB
 gpg:                using RSA key xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 gpg: using pgp trust model
 gpg: Good signature from "xxxxx xxxx (xxxxxx) <xxxxxxxxxxxxxxx@xx.xx>" [ultimate]
 gpg: textmode signature, digest algorithm SHA512, key algorithm rsa4096
 
 -x- Checking SHA512 files\' digest ...
-dokumen_negara.tar.xz: OK
-sangat_rahasia/xyz.zip: OK
+archiveexample.tar.xz: OK
+klmnopqrstuvw/xyz.zip: OK
 
 Everything is OK.
 ```
@@ -188,7 +188,7 @@ Everything is OK.
 ```sh
 -x- Verifying 'Gladient_JfD.tar.xz' with detached signature file ...
 gpg: armor header: Comment: This signature is for the .tar version of the archive
-gpg: Signature made Thu Mar 31 23:19:36 2022 JST
+gpg: Signature made Thu Mar 31 23:19:36 2022 WIB
 gpg:                using RSA key xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 gpg: using pgp trust model
 gpg: Good signature from "xxxxx xxxx (xxxxxx) <xxxxxxxxxxxxxxx@xx.xx>" [ultimate]
@@ -198,7 +198,7 @@ gpg: binary signature, digest algorithm SHA256, key algorithm rsa4096
 gpg: armor header: Hash: SHA256
 gpg: armor header: Version: GnuPG v2.2.34 (GNU/Linux)
 gpg: original file name=''
-gpg: Signature made Thu Mar 31 23:19:37 2022 JST
+gpg: Signature made Thu Mar 31 23:19:37 2022 WIB
 gpg:                using RSA key xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 gpg: using pgp trust model
 gpg: Good signature from "xxxxx xxxx (xxxxxx) <xxxxxxxxxxxxxxx@xx.xx>" [ultimate]
